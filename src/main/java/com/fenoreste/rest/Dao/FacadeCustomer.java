@@ -116,14 +116,14 @@ public abstract class FacadeCustomer<T> {
             String name = "", customerType = "";
             name = p.getNombre() + " " + p.getAppaterno() + " " + p.getApmaterno();
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd");
-            String birthDate=sdf.format(p.getFechanacimiento());
+            String birthDate = sdf.format(p.getFechanacimiento());
             if (p.getRazonSocial() == null) {
                 customerType = "individual";
             } else {
                 customerType = "grupal";
             }
             client.setNationalId(p.getCurp());
-            client.setBirthDate(birthDate.replace("/","-"));
+            client.setBirthDate(birthDate.replace("/", "-"));
             client.setCustomerId(ogs);
             client.setName(name);
             client.setCustomerType("individual");
@@ -194,6 +194,7 @@ public abstract class FacadeCustomer<T> {
         Query query = null;
         String consulta = "SELECT * FROM auxiliares a INNER JOIN tipos_cuenta_siscoop tp USING(idproducto) WHERE "
                 + " idorigen = " + ogs.getIdorigen() + " AND idgrupo = " + ogs.getIdgrupo() + " AND idsocio = " + ogs.getIdsocio() + " AND estatus = 2";
+        System.out.println("CONSULTA: " + consulta);
         CustomerAccountDTO producto = new CustomerAccountDTO();
         try {
             query = em.createNativeQuery(consulta, Auxiliares.class);
@@ -227,25 +228,48 @@ public abstract class FacadeCustomer<T> {
 
                     String og = String.format("%06d", a.getIdorigen()) + String.format("%02d", a.getIdgrupo());
                     String s = String.format("%06d", a.getIdsocio());
+                    
+                    int matriz = Util.matriz();
+                    
+                    /*Validacion para Caja Sagrada*/
+                    if (matriz == 20700) {
+                        String opa = String.format("%06d", a.getAuxiliaresPK().getIdorigenp()) + String.format("%05d", a.getAuxiliaresPK().getIdproducto()) + String.format("%08d", a.getAuxiliaresPK().getIdauxiliar());
+                        System.out.println("OPA: " + opa);
+                        String cade = opa.substring(0, 2) + "***************" + opa.substring(17, 19);
 
-                    String op = String.format("%06d", a.getAuxiliaresPK().getIdorigenp()) + String.format("%05d", a.getAuxiliaresPK().getIdproducto());
-                    String aa = String.format("%08d", a.getAuxiliaresPK().getIdauxiliar());
-                    System.out.println("opa:" + op + "," + aa);
-                    String cadenaa = aa.substring(4, 8);
-                    String cade = "******" + cadenaa;
+                        producto = new CustomerAccountDTO(
+                                opa /*op + aa*/,
+                                opa /*op + aa*/,
+                                cade,
+                                accountType,
+                                "MXN",
+                                String.valueOf(a.getAuxiliaresPK().getIdproducto().toString()),
+                                status,
+                                arr,
+                                arr1);
+                        listaDeCuentas.add(producto);
+                        accountType = "";
+                    } else {
+                        /*Validacion default Caja Nuevo Mexico*/
+                        String op = String.format("%06d", a.getAuxiliaresPK().getIdorigenp()) + String.format("%05d", a.getAuxiliaresPK().getIdproducto());
+                        String aa = String.format("%08d", a.getAuxiliaresPK().getIdauxiliar());
+                        System.out.println("opa:" + op + "," + aa);
+                        String cadenaa = aa.substring(4, 8);
+                        String cade = "******" + cadenaa;
 
-                    producto = new CustomerAccountDTO(
-                            op + aa,
-                            op + aa,
-                            cade,
-                            accountType,
-                            "MXN",
-                            String.valueOf(a.getAuxiliaresPK().getIdproducto().toString()),
-                            status,
-                            arr,
-                            arr1);
-                    listaDeCuentas.add(producto);
+                        producto = new CustomerAccountDTO(
+                                op + aa,
+                                op + aa,
+                                cade,
+                                accountType,
+                                "MXN",
+                                String.valueOf(a.getAuxiliaresPK().getIdproducto().toString()),
+                                status,
+                                arr,
+                                arr1);
+                        listaDeCuentas.add(producto);
                     accountType = "";
+                    }
                 }
             }
             return listaDeCuentas;
@@ -379,7 +403,7 @@ public abstract class FacadeCustomer<T> {
         return estatus;
     }
 
-    public Double[] position(String customerId) {
+    public Double[] position_NM(String customerId) {
         EntityManager em = AbstractFacade.conexion();
         ogsDTO ogs = Util.ogs(customerId);
         double saldo_congelado = 0.0;
@@ -404,11 +428,12 @@ public abstract class FacadeCustomer<T> {
 
                 bandera = true;
 
-                //Si es una inversion
                 System.out.println("idproducto:" + a.getAuxiliaresPK().getIdproducto() + ",i:" + i + ",Saldo disponible:" + saldo_disponible + ",saldoCongelado:" + saldo_congelado);
                 Query query_fecha_servidor = em.createNativeQuery("SELECT date(fechatrabajo) FROM origenes limit 1");
                 String fecha_servidor = String.valueOf(query_fecha_servidor.getSingleResult());
                 Date fecha_obtenida_servidor_db = stringToDate(fecha_servidor.replace("-", "/"));//fecha obtenida_servidor
+
+                //Si es una inversion
                 if (pr.getTipoproducto() == 1) {
                     saldo_disponible_actual = saldo_disponible_actual + a.getSaldo().doubleValue();
                     //Se suma fechaactivacion mas plazos para determinar si el producto ya se puede cobrar o aun no
@@ -486,6 +511,115 @@ public abstract class FacadeCustomer<T> {
         saldos[1] = saldo_disponible_actual;
         return saldos;
     }
+    
+    public Double[] position_SF(String customerId) {
+        EntityManager em = AbstractFacade.conexion();
+        ogsDTO ogs = Util.ogs(customerId);
+        double saldo_congelado = 0.0;
+        double saldo_disponible = 0.0;
+        double saldo_total = 0.0;
+        double saldo_disponible_total = 0.0;
+        try {
+
+            String consulta_productos = "SELECT * FROM auxiliares a INNER JOIN tipos_cuenta_siscoop tp USING (idproducto) INNER JOIN productos p USING (idproducto)"
+                    + " WHERE a.idorigen = " + ogs.getIdorigen()
+                    + " AND idgrupo = " + ogs.getIdgrupo()
+                    + " AND idsocio = " + ogs.getIdsocio()
+                    + " AND a.estatus = 2 AND tipoproducto in (0,1) ORDER BY idproducto";
+            System.out.println("Consulta:" + consulta_productos);
+            Query query = em.createNativeQuery(consulta_productos, Auxiliares.class);
+
+            List<Auxiliares> lista_productos = query.getResultList();
+            boolean bandera = false;
+            for (int i = 0; i < lista_productos.size(); i++) {
+
+                Auxiliares a = lista_productos.get(i);
+                Productos pr = em.find(Productos.class, a.getAuxiliaresPK().getIdproducto());
+
+                bandera = true;
+
+                Query query_fecha_servidor = em.createNativeQuery("SELECT date(fechatrabajo) FROM origenes limit 1");
+                String fecha_servidor = String.valueOf(query_fecha_servidor.getSingleResult());
+                Date fecha_obtenida_servidor_db = stringToDate(fecha_servidor.replace("-", "/"));//fecha obtenida_servidor
+                
+                //Si es una inversion
+                if (pr.getTipoproducto() == 1) {
+                    saldo_total = saldo_total + a.getSaldo().doubleValue();
+                    //Se suma fechaactivacion mas plazos para determinar si el producto ya se puede cobrar o aun no
+                    SimpleDateFormat dateFormat = new SimpleDateFormat("dd-MM-yyyy");
+                    String fecha_auxiliar = dateFormat.format(a.getFechaactivacion());
+                    String calcular_disponibilidad_saldo = "SELECT fechaactivacion + " + Integer.parseInt(String.valueOf(a.getPlazo())) + " FROM auxiliares a WHERE a.idorigenp="
+                            + a.getAuxiliaresPK().getIdorigenp()
+                            + " AND a.idproducto=" + a.getAuxiliaresPK().getIdproducto()
+                            + " AND a.idauxiliar=" + a.getAuxiliaresPK().getIdauxiliar();
+                    System.out.println("Calcular Disponibilidad: " + calcular_disponibilidad_saldo);
+                    Query fecha_disponibilidad_inversion = em.createNativeQuery(calcular_disponibilidad_saldo);
+                    String fecha = String.valueOf(fecha_disponibilidad_inversion.getSingleResult()).replace("-", "/");
+
+                    Date fecha_vencimiento_folio = stringToDate(fecha);//fecha vencimiento_folio_auxiliar
+
+                    //si la fecha obtenida es igual al dia actual(hoy) o esta antes: El saldo de la inversion se puede retirar siempre y cuando no este amparando credito
+                    //saldoLedgerDPF = saldoLedgerDPF + Double.parseDouble(a.getSaldo().toString());
+                    System.out.println("Fecha Vencimiento Folio: " + fecha_vencimiento_folio);
+                    System.out.println("Fecha Trabajo: " + fecha_obtenida_servidor_db.toString());
+
+                    if (fecha_vencimiento_folio.equals(fecha_obtenida_servidor_db) || fecha_vencimiento_folio.before(fecha_obtenida_servidor_db)) {
+                        //Si ya esta disponible pero esta en garantia
+
+                        if (a.getGarantia().intValue() > 0) {
+                            saldo_congelado = saldo_congelado + Double.parseDouble(a.getGarantia().toString());
+                            saldo_disponible = saldo_disponible + (Double.parseDouble(a.getSaldo().toString()) - Double.parseDouble(a.getGarantia().toString()));
+                        } else {//Si ya se puede retirar la inversion por la fecha y no esta en garantia entonces el saldo ya esta disponible
+                            saldo_disponible = saldo_disponible + Double.parseDouble(a.getSaldo().toString());
+                        }
+                        //Si el dpf aun no se puede retirar
+                    } else {
+                        saldo_congelado = saldo_congelado + Double.parseDouble(a.getSaldo().toString());
+                    }
+
+                } else if (pr.getTipoproducto() == 0) {
+                    saldo_total = saldo_total + a.getSaldo().doubleValue();
+                    if (pr.getNombre().toUpperCase().contains("NAVI")) {
+                        String fecha = dateToString(fecha_obtenida_servidor_db);
+                        if (fecha.substring(5, 7).contains("12")) {
+                            if (Double.parseDouble(a.getGarantia().toString()) > 0) {
+                                saldo_congelado = saldo_congelado + Double.parseDouble(a.getGarantia().toString());
+                                saldo_disponible = saldo_disponible + (Double.parseDouble(a.getSaldo().toString()) - Double.parseDouble(a.getGarantia().toString()));
+
+                            } else {
+                                saldo_disponible = saldo_disponible + Double.parseDouble(a.getSaldo().toString());
+                            }
+                        } else {
+                            saldo_congelado = saldo_congelado + a.getSaldo().doubleValue();
+                        }
+                    } else {
+                        /*if (Double.parseDouble(a.getGarantia().toString()) > 0) {
+                            saldo_congelado = saldo_congelado + Double.parseDouble(a.getGarantia().toString());
+                            saldo_disponible = saldo_disponible + (Double.parseDouble(a.getSaldo().toString()) - Double.parseDouble(a.getGarantia().toString()));*/
+                        if (pr.getNombre().toUpperCase().contains("GARANTIA")) {
+                            saldo_congelado = saldo_congelado + Double.parseDouble(a.getSaldo().toString());
+                            saldo_disponible = saldo_disponible - (Double.parseDouble(a.getSaldo().toString()));
+                        } else {
+                            saldo_disponible = saldo_disponible + Double.parseDouble(a.getSaldo().toString());
+                        }
+                    }
+                }
+                System.out.println("Lista: " + i +", Producto: " + a.getAuxiliaresPK().getIdproducto() + ", Saldo Total Acumulado: " + saldo_total + ", Saldo Congelado:" + saldo_congelado);
+            }
+            saldo_disponible_total = saldo_total - saldo_congelado;
+            System.out.println("El Saldo Total = " + saldo_total + " El Saldo Congelado = " + saldo_congelado + " El Saldo Disponible " + saldo_disponible_total);
+        } catch (Exception e) {
+            e.getStackTrace();
+            System.out.println("Error: " + e.getMessage());
+            em.close();
+        } finally {
+            em.close();
+        }
+        Double saldos[] = new Double[2];
+        saldos[0] = saldo_disponible_total;
+        saldos[1] = saldo_total;
+        return saldos;
+    }
 
     public List<String[]> positionHistory2(String customerId, String fecha1, String fecha2) {
         EntityManager em = AbstractFacade.conexion();
@@ -510,262 +644,6 @@ public abstract class FacadeCustomer<T> {
             System.out.println("Error en postionHistory:" + e.getMessage());
         }
         return lista_d;
-    }
-
-    public List<String[]> positionHistory0(String customerId, String fecha1, String fecha2) {
-        EntityManager em = AbstractFacade.conexion();
-        ogsDTO ogs = Util.ogs(customerId);
-        double ec_saldo_anterior = 0.0, v1 = 0.0, v2 = 0.0, v3 = 0.0, v4 = 0.0, v5 = 0.0, v6 = 0.0, v7 = 0.0, v8 = 0.8;
-        int c0 = 00, c01 = 0, c2 = 0, c3 = 0;
-        //Estas variables se usan para obtener un arreglo entre 2 fechas
-        Calendar c = Calendar.getInstance();
-        Calendar c1 = Calendar.getInstance();
-        List<String[]> lista_d = new ArrayList();
-        try {
-            //Buscamos la lista lista de auxiliares para el socio que esta ingresando
-            String consulta_lista_auxiliares = "SELECT * FROM auxiliares a INNER JOIN tipos_cuenta_siscoop tps USING(idproducto) INNER JOIN productos pr USING(idproducto)"
-                    + " WHERE a.idorigen=" + ogs.getIdorigen()
-                    + " AND a.idgrupo=" + ogs.getIdgrupo()
-                    + " AND a.idsocio=" + ogs.getIdsocio()
-                    + " AND a.estatus=2 AND pr.tipoproducto IN (0,1)";
-            System.out.println("Consulta: " + consulta_lista_auxiliares);
-            Query queryA = em.createNativeQuery(consulta_lista_auxiliares, Auxiliares.class);
-            List<Auxiliares> listaAuxiliares = queryA.getResultList();
-
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd");
-            Date fechaInicio = sdf.parse(fecha1);
-            Date fechaFinal = sdf.parse(fecha2);
-
-            List<Date> listaFechas = getListaEntreFechas(fechaInicio, fechaFinal);
-            List<String> listaOpas = new ArrayList<>();
-
-            //corremos la lista de todos los productos
-            int x = 0;
-            for (x = 0; x < listaAuxiliares.size(); x++) {
-                Auxiliares a = listaAuxiliares.get(x);
-                String opa = String.format("%06d", a.getAuxiliaresPK().getIdorigenp()) + "" + String.format("%05d", a.getAuxiliaresPK().getIdproducto()) + "" + String.format("%08d", a.getAuxiliaresPK().getIdauxiliar());
-                listaOpas.add(opa);
-            }
-
-            //Corremos el arrelgo de fechas
-            for (int i = 0; i < listaFechas.size(); i++) {
-
-                String arr[] = new String[3];
-                //Obtenemos la fecha en cierta posicion del arreglo
-                Date fecha_intermedio = listaFechas.get(i);
-                String fechaString = sdf.format(fecha_intermedio);
-
-                String suma_saldo_aux = "SELECT case when sum(saldo)>0 then sum(saldo) else " + v6 + " end FROM auxiliares a inner join auxiliares_d ad using(idorigenp,idproducto,idauxiliar)  inner join tipos_cuenta_siscoop tp "
-                        + " using(idproducto) inner join productos p using(idproducto) WHERE "
-                        + " a.idorigen=" + ogs.getIdorigen()
-                        + " AND idgrupo=" + ogs.getIdgrupo()
-                        + " AND idsocio=" + ogs.getIdsocio()
-                        + " AND p.tipoproducto in(0) and date(ad.fecha)='" + fechaString + "'";
-
-                String suma_saldo_aux1 = "SELECT sum(saldo) FROM auxiliares a inner join tipos_cuenta_siscoop tp "
-                        + " using(idproducto) inner join productos p using(idproducto) WHERE "
-                        + " a.idorigen=" + ogs.getIdorigen()
-                        + " AND idgrupo=" + ogs.getIdgrupo()
-                        + " AND idsocio=" + ogs.getIdsocio()
-                        + " AND p.tipoproducto in(0,1) ";
-
-                Query query_suma_saldo = em.createNativeQuery(suma_saldo_aux1);
-                double saldo_al_dia = Double.parseDouble(String.valueOf(query_suma_saldo.getSingleResult()));
-                v6 = saldo_al_dia;
-
-                //opaDTO opa = null;
-                //System.out.println("idorigenp:" + opa.getIdorigenp() + ",idproducto:" + opa.getIdproducto() + ",idauxiliar:" + opa.getIdauxiliar());
-                //Corro la lista de todos los productos que el socio
-                for (int y = 0; y < listaOpas.size(); y++) {
-                    //Deserealizo el opda
-                    opaDTO opa = Util.opa(listaOpas.get(y));
-                    String fecha_mov = fechaString;
-                    String fecha_string_mov = fecha_mov.substring(0, 10).replace("-", "/");
-
-                    //convierto la fecha del movimiento en date
-                    Date date_mov = sdf.parse(fecha_string_mov);
-                    //Date now = c.getTime();
-                    c.setTime(date_mov);
-                    c.add(Calendar.DAY_OF_MONTH, -1);
-                    c1.setTime(date_mov);
-                    c1.add(Calendar.MONTH, -2);
-                    Date fecha_mant = c1.getTime();
-                    Date fecha_ant = c.getTime();
-                    String fecha_mov_anterior = dateToString(fecha_ant);
-
-                    //Obtengo el saldo del movimiento anterior 
-                    String busqueda = "SELECT * FROM auxiliares_d WHERE idorigenp=" + opa.getIdorigenp()
-                            + " AND idproducto=" + opa.getIdproducto()
-                            + " AND idauxiliar=" + opa.getIdauxiliar()
-                            + " AND date(fecha) BETWEEN '" + dateToString(fecha_mant) + "' AND '" + fecha_mov_anterior + "' ORDER BY fecha DESC LIMIT 1";
-                    boolean b = false;
-                    Query monto_ad = null;
-                    try {
-                        Query querycv = em.createNativeQuery(busqueda, AuxiliaresD.class);
-                        AuxiliaresD add = (AuxiliaresD) querycv.getSingleResult();
-                        //Busco todo los movimientos en auxiliareS_d para la fecha en el arreglo de fechas
-                        String busqueda_movimientos = "SELECT case when sum(case when cargoabono=0 then -monto else monto end)!=0 then sum(case when cargoabono=0 then -monto else monto end) else 0 end  as monto FROM auxiliares_d"
-                                + " WHERE idorigenp=" + opa.getIdorigenp()
-                                + " AND idproducto=" + opa.getIdproducto()
-                                + " AND idauxiliar=" + opa.getIdauxiliar()
-                                + " AND date(fecha)='" + fechaString + "'";
-
-                        monto_ad = em.createNativeQuery(busqueda_movimientos);
-                        v7 = Double.parseDouble(String.valueOf(monto_ad.getSingleResult()));
-                        ec_saldo_anterior = add.getSaldoec().doubleValue();
-                        b = true;
-                    } catch (Exception e) {
-                    }
-
-                    // System.out.println("el saldo ec anteriror del producto:" + add.getAuxiliaresDPK().getIdproducto() + " es:" + ec_saldo_anterior + " la fecha es:" + add.getAuxiliaresDPK().getFecha());
-                    if (c0 > 2) {
-                        if (b) {
-                            v4 = v4 + Double.parseDouble(String.valueOf(monto_ad.getSingleResult()));
-                        }
-
-                    } else {
-                        if (b) {
-                            v1 = v1 + ec_saldo_anterior + Double.parseDouble(String.valueOf(monto_ad.getSingleResult()));
-                            v2 = v2 + v1;
-                            v1 = 0.0;
-                            c0 = c0 + 1;
-                        }
-
-                    }
-
-                }//Termina el recorrido de los opas
-                if (c0 <= 2) {
-                    v4 = v2;
-                }
-
-                System.out.println("entonces en la fecha " + fecha_intermedio + " el saldo disponible fue de:" + v4 + " el saldo actual:" + saldo_al_dia);
-                arr[0] = String.valueOf(v4);
-                arr[1] = String.valueOf(saldo_al_dia);
-                arr[2] = fechaString;
-                lista_d.add(arr);
-            }//termina el recorrido de fechas
-        } catch (Exception e) {
-            System.out.println("Error en postionHistory:" + e.getMessage());
-        }
-        return lista_d;
-    }
-
-    public List<Double[]> positionHistory1(String customerId, String fecha1, String fecha2) {
-        EntityManager em = AbstractFacade.conexion();
-        ogsDTO ogs = Util.ogs(customerId);
-        Double ledGer = 0.0, avalaible = 0.0, saldo_congelado = 0.0, saldo_disponible = 0.0;
-        Calendar c = Calendar.getInstance();
-        Calendar c1 = Calendar.getInstance();
-        try {
-            //Buscamos la lista lista de auxiliares para el socio que esta ingresando
-            String consulta_lista_auxiliares = "SELECT * FROM auxiliares a INNER JOIN tipos_cuenta_siscoop tps USING(idproducto) INNER JOIN productos pr USING(idproducto)"
-                    + " WHERE a.idorigen=" + ogs.getIdorigen()
-                    + " AND a.idgrupo=" + ogs.getIdgrupo()
-                    + " AND a.idsocio=" + ogs.getIdsocio()
-                    + " AND a.estatus=2 AND pr.tipoproducto IN (0)";
-            System.out.println("Consulta: " + consulta_lista_auxiliares);
-            Query queryA = em.createNativeQuery(consulta_lista_auxiliares, Auxiliares.class);
-            List<Auxiliares> listaAuxiliares = queryA.getResultList();
-
-            SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd");
-            Date fechaInicio = sdf.parse(fecha1);
-            Date fechaFinal = sdf.parse(fecha2);
-            List<Date> listaFechas = getListaEntreFechas(fechaInicio, fechaFinal);
-            List<String> listaOpas = new ArrayList<>();
-            double saldo_ec_anterior = 0.0;
-            double saldo_al_dia_actual = 0.0;
-            double saldo_sin_mov = 0.0;
-            //corremos la lista de todos los productos
-            int x = 0;
-            for (x = 0; x < listaAuxiliares.size(); x++) {
-                Auxiliares a = listaAuxiliares.get(x);
-                String opa = String.format("%06d", a.getAuxiliaresPK().getIdorigenp()) + "" + String.format("%05d", a.getAuxiliaresPK().getIdproducto()) + "" + String.format("%08d", a.getAuxiliaresPK().getIdauxiliar());
-                listaOpas.add(opa);
-            }
-            boolean b = false;
-            for (int i = 0; i < listaFechas.size(); i++) {
-                double saldo_actual = 0.0;
-                Date fe = listaFechas.get(i);
-                String fechaString = sdf.format(fe);
-                //opaDTO opa = null;
-                //System.out.println("idorigenp:" + opa.getIdorigenp() + ",idproducto:" + opa.getIdproducto() + ",idauxiliar:" + opa.getIdauxiliar());
-                for (int y = 0; y < listaOpas.size(); y++) {
-
-                    opaDTO opa = Util.opa(listaOpas.get(y));
-                    String fecha_mov = fechaString;
-                    String fecha_string_mov = fecha_mov.substring(0, 10).replace("-", "/");
-
-                    Date date_mov = sdf.parse(fecha_string_mov);
-                    //Date now = c.getTime();
-                    c.setTime(date_mov);
-                    c.add(Calendar.DAY_OF_MONTH, -1);
-                    c1.setTime(date_mov);
-                    c1.add(Calendar.MONTH, -2);
-                    Date fecha_mant = c1.getTime();
-                    Date fecha_ant = c.getTime();
-                    String fecha_mov_anterior = dateToString(fecha_ant);
-
-                    //Obtengo el saldo del movimiento anterior 
-                    String busqueda = "SELECT * FROM auxiliares_d WHERE idorigenp=" + opa.getIdorigenp()
-                            + " AND idproducto=" + opa.getIdproducto()
-                            + " AND idauxiliar=" + opa.getIdauxiliar()
-                            + " AND date(fecha) BETWEEN '" + dateToString(fecha_mant) + "' AND '" + fecha_mov_anterior + "' ORDER BY fecha DESC LIMIT 1";
-                    System.out.println("BUSQUEDA: " + busqueda);
-
-                    Query querycv = em.createNativeQuery(busqueda, AuxiliaresD.class);
-                    AuxiliaresD add = (AuxiliaresD) querycv.getSingleResult();
-
-                    //Busco todo los movimientos en auxiliareS_d
-                    String busqueda_movimientos = "SELECT (CASE WHEN sum(monto)>0 THEN sum(monto) ELSE 0 END) as monto FROM auxiliares_d"
-                            + " WHERE idorigenp=" + opa.getIdorigenp()
-                            + " AND idproducto=" + opa.getIdproducto()
-                            + " AND idauxiliar=" + opa.getIdauxiliar()
-                            + " AND date(fecha)='" + fechaString + "'";
-                    System.out.println("BUSQUEDA MOVIMIENTO: " + busqueda_movimientos);
-                    Query queryAuxiliares_d = em.createNativeQuery(busqueda_movimientos);
-
-                    saldo_ec_anterior = add.getSaldoec().doubleValue();
-                    System.out.println("SALDO COMIENZO: " + saldo_ec_anterior);
-
-                    double saldoTotal = Double.parseDouble(String.valueOf(queryAuxiliares_d.getSingleResult()));
-                    if (saldoTotal > 0) {
-                        b = true;
-                        System.out.println("entro el saldo disponible es:" + saldo_disponible);
-                        //System.out.println("busqueda:"+busqueda_movimientos);
-                        System.out.println("el saldo ec del movimiento anterior es:" + add.getSaldoec());
-
-                        saldo_actual = saldo_disponible + saldo_ec_anterior + saldoTotal;
-                        //saldo_congelado=saldo_congelado+saldo_disponible;
-                        System.out.println("si hubo movimientos en la fecha y se incremento el saldo anterior era:" + saldo_ec_anterior + " ahora el nuevo saldo es:" + saldo_actual);
-                    } else {
-                        System.out.println("ledger entro con: " + ledGer);
-                        ledGer = saldo_ec_anterior;
-                    }
-
-                    if (b) {
-                        saldo_disponible = saldo_actual;
-                        saldo_actual = 0.0;
-                    }
-
-                }
-
-                if (b) {
-                    saldo_congelado = saldo_congelado + saldo_disponible;
-                    System.out.println(" el dia " + fechaString + " el saldo disponible fue de:" + saldo_congelado);
-                } else {
-                    saldo_sin_mov = saldo_sin_mov + ledGer;
-                    System.out.println(" el dia " + fechaString + " el saldo disponible fue de:" + saldo_sin_mov);
-                    ledGer = 0.0;
-                }
-                b = false;
-
-            }
-
-            System.out.println("FechaInicio:" + fechaInicio + ",fechaFinal:" + fechaFinal);
-        } catch (Exception e) {
-
-        }
-        return null;
     }
 
     public List<Date> getListaEntreFechas(Date fechaInicio, Date fechaFin) {

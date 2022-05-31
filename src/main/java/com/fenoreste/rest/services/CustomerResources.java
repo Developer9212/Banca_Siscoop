@@ -6,6 +6,7 @@ import DTO.CustomerContactDetailsDTO;
 import DTO.CustomerDetailsDTO;
 import DTO.CustomerSearchDTO;
 import com.fenoreste.rest.Dao.CustomerDAO;
+import com.fenoreste.rest.Util.Utilidades;
 import com.github.cliftonlabs.json_simple.JsonArray;
 import com.github.cliftonlabs.json_simple.JsonObject;
 import java.util.ArrayList;
@@ -209,7 +210,19 @@ public class CustomerResources {
                 for (int i = 0; i < cuentas.size(); i++) {
                     JsonObjectBuilder data = Json.createObjectBuilder();
                     CustomerAccountDTO cuenta = cuentas.get(i);
-                    datosOK = data.add("accountId", cuenta.getAccountId()).add("accountNumber", cuenta.getAccountNumber()).add("displayAccountNumber", cuenta.getDisplayAccountNumber()).add("accountType", cuenta.getAccountTye()).add("currencyCode", cuenta.getCurrencyCode()).add("productCode", cuenta.getProductCode()).add("status", cuenta.getStatus()).add("restrictions", (JsonValue) Json.createArrayBuilder().build()).add("customerRelations", (JsonValue) Json.createArrayBuilder().add((JsonValue) Json.createObjectBuilder().add("relationCode", "SOW").add("relationType", "self").build()).build()).add("hasBalances", true).build();
+                    datosOK = data.add("accountId", cuenta.getAccountId())
+                                             .add("accountNumber", cuenta.getAccountNumber())
+                                             .add("displayAccountNumber", cuenta.getDisplayAccountNumber())
+                                             .add("accountType", cuenta.getAccountTye())
+                                             .add("currencyCode", cuenta.getCurrencyCode())
+                                             .add("productCode", cuenta.getProductCode())
+                                             .add("status", cuenta.getStatus())
+                                             .add("restrictions", (JsonValue) Json.createArrayBuilder().build())
+                                             .add("customerRelations", (JsonValue) Json.createArrayBuilder()
+                                                     .add((JsonValue) Json.createObjectBuilder()
+                                                             .add("relationCode", "SOW")
+                                                             .add("relationType", "self").build()).build())
+                                             .add("hasBalances", true).build();
                     arrayCuentas.add((JsonValue) datosOK);
                 }
                 javax.json.JsonObject Found = Json.createObjectBuilder().add("accounts", arrayCuentas).build();
@@ -357,6 +370,7 @@ public class CustomerResources {
     @Consumes({MediaType.APPLICATION_JSON})
     public Response GetPosition(String cadena, @HeaderParam("authorization") String authString) {
         Security scr = new Security();
+        Utilidades utl = new Utilidades();
         if (!scr.isUserAuthenticated(authString)) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
@@ -386,14 +400,34 @@ public class CustomerResources {
             System.out.println("HORARIO ACTIVIDAD: " + Error);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(Error).build();
         }*/
+        
+        int matriz = utl.matriz();
+        System.out.println("Matriz: " + matriz);
 
         try {
             if (!balanceLedger.equals("") && !balanceAvalaible.equals("")) {
-                arr = dao.position(customerId);
+                //Metodo para Sagrada Familia
+                if (matriz == 20700) {
+                    arr = dao.position_SF(customerId);
+                } else {
+                    //Metodo default Nuevo Mexico
+                    arr = dao.position_NM(customerId);
+                }
             }
-            javax.json.JsonObject clientes1 = Json.createObjectBuilder().add("balanceType", "ledger").add("amount", (JsonValue) Json.createObjectBuilder().add("amount", arr[1].doubleValue()).add("currencyCode", "MXN").build()).build();
-            javax.json.JsonObject clientes2 = Json.createObjectBuilder().add("balanceType", "available").add("amount", (JsonValue) Json.createObjectBuilder().add("amount", arr[0].doubleValue()).add("currencyCode", "MXN").build()).build();
-            json1 = Json.createObjectBuilder().add("positionPerCurrency", jsona.add(Json.createObjectBuilder().add("currencyCode", "MXN").add("balances", Json.createArrayBuilder().add((JsonValue) clientes1).add((JsonValue) clientes2)))).build();
+            javax.json.JsonObject clientes1 = Json.createObjectBuilder().add("balanceType", "ledger")
+                                                                                                         .add("amount", (JsonValue) Json.createObjectBuilder()
+                                                                                                                 .add("amount", arr[1].doubleValue())
+                                                                                                                 .add("currencyCode", "MXN").build()).build();
+            javax.json.JsonObject clientes2 = Json.createObjectBuilder().add("balanceType", "available")
+                                                                                                         .add("amount", (JsonValue) Json.createObjectBuilder()
+                                                                                                                 .add("amount", arr[0].doubleValue())
+                                                                                                                 .add("currencyCode", "MXN").build()).build();
+            json1 = Json.createObjectBuilder().add("positionPerCurrency", jsona
+                                                                  .add(Json.createObjectBuilder()
+                                                                          .add("currencyCode", "MXN")
+                                                                          .add("balances", Json.createArrayBuilder()
+                                                                                  .add((JsonValue) clientes1)
+                                                                                  .add((JsonValue) clientes2)))).build();
             String status = "";
             datosOk.put("status", status);
             return Response.status(Response.Status.OK).entity(json1).build();

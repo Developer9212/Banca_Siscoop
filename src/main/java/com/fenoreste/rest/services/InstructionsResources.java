@@ -276,9 +276,7 @@ public class InstructionsResources {
             
             if (FechaTiempoReal.equals(fechaEjecucion) && frecuencia_tran.equals("none")) {
                 System.out.println("FECHAS IGUALES Y TRANSFERENCIA NORMAL");
-                
-                //if (frecuencia_tran.toUpperCase().contains("none"))
-                
+
                 //Es una transferencia a mis cuentas propias
                 if (identificadorTransferencia == 1) {
                     System.out.println("ennnnnnnnnntrooooooooooooooooooooooooooooooooooooooooooooooo");
@@ -388,7 +386,6 @@ public class InstructionsResources {
 
     @POST
     @Path("/monetary/execute")
-    /*@Path("/monetary/executar_transaccion")*/
     @Produces({MediaType.APPLICATION_JSON})
     @Consumes({MediaType.APPLICATION_JSON})
     public Response executeMonetaryInstruction(String cadena, @HeaderParam("authorization") String authString) throws JSONException {
@@ -555,7 +552,6 @@ public class InstructionsResources {
             System.out.println("Error al crear json:" + ex.getMessage());
         }
         return null;
-
     }
 
     @POST
@@ -582,7 +578,6 @@ public class InstructionsResources {
             System.out.println("Error al crear json:" + ex.getMessage());
         }
         return null;
-
     }
 
     @POST
@@ -609,7 +604,6 @@ public class InstructionsResources {
             System.out.println("Error al crear json:" + ex.getMessage());
         }
         return null;
-
     }
 
 }

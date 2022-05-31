@@ -351,7 +351,6 @@ public abstract class FacadeAccounts<T> {
                         + " AND " + complemento_transaction_type
                         + " AND date(fecha) between '" + fechas.get(0).trim() + "' AND '" + fechas.get(1).trim() + "'"
                         + " ORDER BY fecha DESC";
-
             }
             //Solo fecha y contador
             else if (fechas.size() > 0 && montos.size() == 0 && transactionType.equals("") && count > 0) {
@@ -416,7 +415,7 @@ public abstract class FacadeAccounts<T> {
                         + " AND idauxiliar = " + opa.getIdauxiliar()
                         + " AND " + complemento_transaction_type + " ORDER BY fecha DESC LIMIT  " + count;
             }
-            
+
             System.out.println("Consulta Test: "+ con + sulta);
             Query qqq=em.createNativeQuery(con + sulta);
             
@@ -766,11 +765,15 @@ public abstract class FacadeAccounts<T> {
 
                 if (linea.contains("/usr/local/saicoop/img_estado_cuenta_ahorros/")) {
                     String cade = ruta();
-                    System.out.println("Cade:" + cade.replace("\\", "/"));
+                    System.out.println("Cadena:" + cade.replace("\\", "/"));
                     linea = linea.replace("/usr/local/saicoop/img_estado_cuenta_ahorros/", cade.replace("\\", "/"));
+                } else if (linea.contains("/usr/local/saicoop/img_estado_cuenta_dpfs_ind/")) {
+                    String cade = ruta();
+                    System.out.println("Cadena:" + cade.replace("\\", "/"));
+                    linea = linea.replace("/usr/local/saicoop/img_estado_cuenta_dpfs_ind/", cade.replace("\\", "/"));
                 } else if (linea.contains("/usr/local/saicoop/img_estado_cuenta_prestamos/")) {
                     String cade = ruta();
-                    System.out.println("Cade:" + cade.replace("\\", "/"));
+                    System.out.println("Cadena:" + cade.replace("\\", "/"));
                     linea = linea.replace("/usr/local/saicoop/img_estado_cuenta_prestamos/", cade.replace("\\", "/"));
                 }
                 if (linea.contains(" & ")) {

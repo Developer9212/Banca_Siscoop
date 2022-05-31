@@ -59,7 +59,7 @@ public class FileResources {
                 return response.build();
             } else {
                 javax.json.JsonObject jsonError = null;
-                System.out.println("Error Message:No existe el archivo" + fileId);
+                System.out.println("Error Message: No existe el archivo " + fileId);
                 jsonError = Json.createObjectBuilder().add("Error", "No existe el archivo que intenta descargar").build();
                 //return Response.status(Response.Status.BAD_GATEWAY).entity(jsonError).build();
                 return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(jsonError).build();
@@ -77,7 +77,6 @@ public class FileResources {
         crearHTML();
         crearPDF(ruta(), "estado.html");
         return null;
-
     }
 
     public void crearHTML() throws FileNotFoundException {
@@ -139,7 +138,6 @@ public class FileResources {
             System.out.println("Error al crear PDF:" + e.getMessage());
             return false;
         }
-
     }
 
     @GET

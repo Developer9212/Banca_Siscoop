@@ -42,7 +42,6 @@ public class Utilidades {
 
     public boolean actividad(EntityManager em) {
         boolean bandera = false;
-
         try {
             String actividad = "SELECT sai_bankingly_servicio_activo_inactivo()";
             Query query = em.createNativeQuery(actividad);
@@ -52,6 +51,19 @@ public class Utilidades {
         }
         System.out.println("BANDERA HORARIO: " + bandera);
         return bandera;
+    }
+
+    public int matriz() {
+        EntityManager em = AbstractFacade.conexion();
+        int mtz = 0;
+        try {
+            Query query = em.createNativeQuery("SELECT matriz FROM origenes WHERE UPPER(nombre) LIKE '%MATRIZ%' LIMIT 1");
+            Integer res = (Integer) query.getSingleResult();
+            mtz = res;
+        } catch (Exception e) {
+            System.out.println("Error: " + e.getMessage());
+        }
+        return mtz;
     }
 
 }

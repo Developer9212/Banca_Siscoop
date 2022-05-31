@@ -9,6 +9,7 @@ import DTO.HoldsDTO;
 import com.fenoreste.rest.Dao.AccountsDAO;
 import com.fenoreste.rest.Dao.TransfersDAO;
 import com.fenoreste.rest.Entidades.AuxiliaresD;
+import com.fenoreste.rest.Util.Utilidades;
 import com.github.cliftonlabs.json_simple.JsonObject;
 import java.security.SecureRandom;
 import java.sql.Timestamp;
@@ -64,7 +65,6 @@ public class AccountsResources {
         }*/
 
         try {
-
             listaHolders = dao.accountHolders(accountId);
             jsonb.put("holders", listaHolders);
             return Response.status(Response.Status.OK).entity(jsonb).build();
@@ -80,6 +80,7 @@ public class AccountsResources {
     @Consumes({MediaType.APPLICATION_JSON})
     public Response validateInternalAccount(String cadena, @HeaderParam("authorization") String authString) {
         Security scr = new Security();
+        Utilidades utl = new Utilidades();
 
         System.out.println("Request cadenaaaaaaaaaaaaaaaa internal validate:" + cadena);
         if (!scr.isUserAuthenticated(authString)) {
@@ -95,8 +96,10 @@ public class AccountsResources {
             System.out.println("HORARIO ACTIVIDAD: " + Error);
             return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(Error).build();
         }*/
+        
+        int matriz = utl.matriz();
+        System.out.println("Matriz: " + matriz);
 
-        System.out.println("Cadena:" + cadena);
         try {
             JSONObject jsonRecibido = new JSONObject(cadena);
             System.out.println("JsonRecibido:" + jsonRecibido);
@@ -108,19 +111,32 @@ public class AccountsResources {
                 List<AccountHoldersValidateDTO> listaHolder = acDao.validateInternalAccount(accountId);
                 AccountHoldersValidateDTO holder = listaHolder.get(0);
                 javax.json.JsonObject create = null;
-                create = Json.createObjectBuilder().add("accountId", accountId)
+                
+                //Response para Sagrada Familia
+                if (matriz == 20700) {
+                    System.out.println("Sagrada Familia");
+                    create = Json.createObjectBuilder().add("accountId", accountId)
                         .add("accountType", acDao.accountType(p).toUpperCase())
                         .add("holders", Json.createArrayBuilder()
                                 .add((JsonValue) Json.createObjectBuilder()
-                                        .add("customerId", holder.getCustomerId() /*"01010110021543"*/)
+                                        .add("customerId", holder.getCustomerId())
                                         .add("name", holder.getName())
                                         .add("relationCode", holder.getRelationCode()).build()))
-                        .add("displayAccountNumber", "***************" + accountId.substring(15, 19)).build();
-                /*.add("displayAccountNumber", "*******510").build();*/
+                        .add("displayAccountNumber", accountId.substring(0, 2) + "***************" + accountId.substring(17, 19)).build();
+                } else {
+                    //Response default Nuevo Mexico
+                    System.out.println("Nuevo Mexico");
+                    create = Json.createObjectBuilder().add("accountId", accountId)
+                            .add("accountType", acDao.accountType(p).toUpperCase())
+                            .add("holders", Json.createArrayBuilder()
+                                    .add((JsonValue) Json.createObjectBuilder()
+                                            .add("customerId", holder.getCustomerId())
+                                            .add("name", holder.getName())
+                                            .add("relationCode", holder.getRelationCode()).build()))
+                            .add("displayAccountNumber", "***************" + accountId.substring(15, 19)).build();
+                }
                 return Response.status(Response.Status.OK).entity(create).build();
-
             }
-
         } catch (Exception e) {
             System.out.println("Error al obtener objetos Json:" + e.getMessage());
         }
@@ -345,7 +361,6 @@ public class AccountsResources {
                                                                                                           .add("valueType", "string")
                                                                                                           .add("isSensitive", false).build()).build();
                 listaJson.add(jsi);
-
             }
 
             javax.json.JsonObject Found = Json.createObjectBuilder().add("totalRecords", to_reg).add("queryId", "").add("transactions", listaJson).build();
@@ -493,7 +508,6 @@ public class AccountsResources {
             System.out.println("Error al crear json:" + ex.getMessage());
         }
         return null;
-
     }
 
     @POST
@@ -518,7 +532,6 @@ public class AccountsResources {
             System.out.println("Error al crear json:" + ex.getMessage());
         }
         return null;
-
     }
 
     @POST

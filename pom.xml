@@ -2,10 +2,10 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.fenoreste.ws</groupId>
-    <artifactId>Fenoreste_Siscoop_Jersey_CNMX</artifactId>
+    <artifactId>Banca_Siscoop</artifactId>
     <packaging>war</packaging>
     <version>1.0-SNAPSHOT</version>
-    <name>Fenoreste_Siscoop_Jersey_CNMX</name>
+    <name>Banca_Siscoop</name>
     <url>http://maven.apache.org</url>
     
     <dependencies>
@@ -113,10 +113,17 @@
             <artifactId>javax.persistence</artifactId>
             <version>2.1.1</version>
         </dependency>
+        
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>1.18.24</version>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
     
     <build>
-        <finalName>Banca_CNMX</finalName>
+        <finalName>Banca</finalName>
     </build>
     
     <properties>
